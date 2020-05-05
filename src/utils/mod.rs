@@ -4,3 +4,4 @@ pub mod macros;
 pub mod mesh;
 pub mod model;
 pub mod shader;
+pub mod terrain;

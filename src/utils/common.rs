@@ -4,12 +4,10 @@
 extern crate glfw;
 use self::glfw::{Action, Context, Glfw, Key, Window, WindowEvent};
 use gl;
-use cgmath::{vec2, vec3};
 
 use std::sync::mpsc::Receiver;
 use std::path::Path;
 use std::os::raw::c_void;
-use rand::prelude::*;
 
 use image;
 use image::DynamicImage::*;
@@ -17,12 +15,7 @@ use image::GenericImage;
 
 use super::camera::Camera;
 use super::camera::Camera_Movement::*;
-use super::mesh::{Mesh, Vertex, Texture};
-
-const VERTEX_COUNT: u32 = 128;
-const COUNT: usize = (VERTEX_COUNT * VERTEX_COUNT) as usize;
-const ICOUNT: usize = (6 * (VERTEX_COUNT-1)*(VERTEX_COUNT-1)) as usize;
-const SIZE: f32 = 800.0;
+use crate::entity::Entity;
 
 pub fn initGlfw() -> Glfw {
   let mut glfw = glfw::init(glfw::FAIL_ON_ERRORS).unwrap();
@@ -99,7 +92,7 @@ pub fn process_events(
   }
 }
 
-pub fn processInput(window: &mut glfw::Window, deltaTime: f32, camera: &mut Camera) {
+pub fn processInput(window: &mut glfw::Window, deltaTime: f32, camera: &mut Camera, nanoEntity: &mut Entity) {
   if window.get_key(Key::Escape) == Action::Press {
     window.set_should_close(true)
   }
@@ -115,71 +108,9 @@ pub fn processInput(window: &mut glfw::Window, deltaTime: f32, camera: &mut Came
   if window.get_key(Key::D) == Action::Press {
     camera.ProcessKeyboard(RIGHT, deltaTime);
   }
-}
-
-pub fn genTerrain() -> Mesh {
-  let mut vertices = [0.0; COUNT * 3];
-  let mut normals = [0.0; COUNT * 3];
-  let mut tCoords = [0.0; COUNT * 2];
-  let mut indices = [0; ICOUNT]; 
-  let mut vertexPointer = 0;
-
-  let mut rng = rand::thread_rng();
-
-  for i in 0..VERTEX_COUNT {
-    for j in 0..VERTEX_COUNT {
-      vertices[vertexPointer*3] = (j as f32)/((VERTEX_COUNT - 1) as f32) * SIZE;
-      vertices[vertexPointer*3+1] = rng.gen_range(0.0, 2.0);
-      vertices[vertexPointer*3+2] = (i as f32)/((VERTEX_COUNT - 1) as f32) * SIZE;
-
-      normals[vertexPointer*3] = 0.0;
-      normals[vertexPointer*3+1] = 1.0;
-      normals[vertexPointer*3+2] = 0.0;
-
-      tCoords[vertexPointer*2] = (j as f32)/((VERTEX_COUNT - 1) as f32);
-      tCoords[vertexPointer*2+1] = (i as f32)/((VERTEX_COUNT - 1) as f32);
-
-      vertexPointer += 1;
-    }
+  if window.get_key(Key::Q) == Action::Press {
+    nanoEntity.ProcessKeyboard(Key::Q, deltaTime);
   }
-
-  let mut pointer = 0;
-  for gz in 0..(VERTEX_COUNT-1) {
-    for gx in 0..(VERTEX_COUNT-1) {
-      let topLeft = (gz*VERTEX_COUNT)+gx;
-      let topRight = topLeft + 1;
-      let bottomLeft = ((gz+1)*VERTEX_COUNT)+gx;
-      let bottomRight = bottomLeft + 1;
-      indices[pointer] = topLeft;
-      indices[pointer+1] = bottomLeft;
-      indices[pointer+2] = topRight;
-      indices[pointer+3] = topRight;
-      indices[pointer+4] = bottomLeft;
-      indices[pointer+5] = bottomRight;
-      pointer += 6
-    }
-  }
-
-  let mut vertexVec: Vec<Vertex> = Vec::with_capacity(COUNT);
-  for i in 0..COUNT {
-    vertexVec.push(
-      Vertex {
-        Position: vec3(vertices[i*3], vertices[i*3+1], vertices[i*3+2]), 
-        Normal: vec3(normals[i*3], normals[i*3+1], normals[i*3+2]), 
-        TexCoords: vec2(tCoords[i*2], tCoords[i*2+1]),
-        ..Vertex::default()
-      }
-    )
-  }
-
-  let path = "grass2.jpg";
-  let t = Texture { 
-    id: unsafe { TextureFromFile(&path, "resources/textures") },
-    type_: "texture_normal".into(),
-    path: path.into(),
-  };
-
-  return Mesh::new(vertexVec, indices.to_vec(), vec![t]);
 }
 
 pub unsafe fn TextureFromFile(path: &str, directory: &str) -> u32 {
