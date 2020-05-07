@@ -1,21 +1,21 @@
 #![allow(non_snake_case)]
 #![allow(dead_code)]
-
 extern crate glfw;
-use self::glfw::{Action, Context, Glfw, Key, Window, WindowEvent};
+use self::glfw::{Context, Glfw, Window, WindowEvent, Action, Key, MouseButtonLeft, MouseButtonRight};
 use gl;
 
 use std::sync::mpsc::Receiver;
-use std::path::Path;
 use std::os::raw::c_void;
+use std::path::Path;
 
-use image;
-use image::DynamicImage::*;
-use image::GenericImage;
+use cgmath::{Vector2, Vector3, Vector4, Matrix4, SquareMatrix, InnerSpace};
+use image::*;
 
 use super::camera::Camera;
 use super::camera::Camera_Movement::*;
+use super::mesh::Line;
 use crate::entity::Entity;
+use crate::{SCR_WIDTH, SCR_HEIGHT, DRAW_DISTANCE};
 
 pub fn initGlfw() -> Glfw {
   let mut glfw = glfw::init(glfw::FAIL_ON_ERRORS).unwrap();
@@ -26,15 +26,15 @@ pub fn initGlfw() -> Glfw {
   glfw
 }
 
-pub fn createAndInitWindow(glfw: Glfw, w: u32, h: u32) -> (Window, Receiver<(f64, WindowEvent)>) {
-  let (mut window, events) = glfw
-    .create_window(w, h, "LearnOpenGL", glfw::WindowMode::Windowed)
-    .expect("Failed to create GLFW window");
+pub fn createAndInitWindow(glfw: &mut Glfw, w: u32, h: u32) -> (Window, Receiver<(f64, WindowEvent)>) {
+  let (mut window, events) = glfw.with_primary_monitor(|g, m| {
+    g.create_window(w, h, "Rust Sandbox", m.map_or(glfw::WindowMode::Windowed, |m| glfw::WindowMode::FullScreen(m)))
+  }).expect("Failed to create GLFW window");
   window.make_current();
   window.set_framebuffer_size_polling(true);
   window.set_cursor_pos_polling(true);
   window.set_scroll_polling(true);
-  window.set_cursor_mode(glfw::CursorMode::Disabled);
+  // window.set_cursor_mode(glfw::CursorMode::Disabled);
   (window, events)
 }
 
@@ -53,11 +53,13 @@ pub fn updateTimings(glfw: Glfw, deltaTime: &mut f32, lastFrame: &mut f32) -> ()
 }
 
 pub fn process_events(
+  window: &mut glfw::Window,
   events: &Receiver<(f64, glfw::WindowEvent)>,
   firstMouse: &mut bool,
   lastX: &mut f32,
   lastY: &mut f32,
   camera: &mut Camera,
+  projectionMatrix: &Matrix4<f32>
 ) {
   for (_, event) in glfw::flush_messages(events) {
     match event {
@@ -82,39 +84,84 @@ pub fn process_events(
         *lastX = xpos;
         *lastY = ypos;
 
-        camera.ProcessMouseMovement(xoffset, yoffset, true);
+        if window.get_mouse_button(MouseButtonLeft) == Action::Press {
+          camera.processMouseMovement(xoffset, yoffset, true);
+        }
+
+        translateCoords(xpos, ypos, projectionMatrix, camera);
       }
 
-      glfw::WindowEvent::Scroll(_xoffset, yoffset) => camera.ProcessMouseScroll(yoffset as f32),
+      glfw::WindowEvent::Scroll(_xoffset, yoffset) => camera.processMouseScroll(yoffset as f32),
 
       _ => {}
     }
   }
 }
 
-pub fn processInput(window: &mut glfw::Window, deltaTime: f32, camera: &mut Camera, nanoEntity: &mut Entity) {
+pub fn processInput(window: &mut glfw::Window, deltaTime: f32, camera: &mut Camera, nanoEntity: &mut Entity, lines: &mut Vec<Line>, lastX: f32, lastY: f32, projectionMatrix: &Matrix4<f32>) {
   if window.get_key(Key::Escape) == Action::Press {
     window.set_should_close(true)
   }
   if window.get_key(Key::W) == Action::Press {
-    camera.ProcessKeyboard(FORWARD, deltaTime);
+    camera.processKeyboard(FORWARD, deltaTime);
   }
   if window.get_key(Key::S) == Action::Press {
-    camera.ProcessKeyboard(BACKWARD, deltaTime);
+    camera.processKeyboard(BACKWARD, deltaTime);
   }
   if window.get_key(Key::A) == Action::Press {
-    camera.ProcessKeyboard(LEFT, deltaTime);
+    camera.processKeyboard(LEFT, deltaTime);
   }
   if window.get_key(Key::D) == Action::Press {
-    camera.ProcessKeyboard(RIGHT, deltaTime);
+    camera.processKeyboard(RIGHT, deltaTime);
   }
   if window.get_key(Key::Q) == Action::Press {
-    nanoEntity.ProcessKeyboard(Key::Q, deltaTime);
+    nanoEntity.processKeyboard(Key::Q, deltaTime);
   }
+
+  if window.get_mouse_button(MouseButtonRight) == Action::Press {
+    let (start, end) = translateCoords(lastX, lastY, projectionMatrix, camera);
+    lines.push(Line::new(start, end));
+  }
+}
+
+pub fn translateCoords(xpos: f32, ypos: f32, projectionMatrix: &Matrix4<f32>, cam: &Camera) -> (Vector3<f32>, Vector3<f32>) {
+  println!("xpos: {}, ypos: {}", xpos, ypos);
+  let normalisedCoords = getNormalisedDeviceCoords(xpos, ypos);
+  println!("nXPos: {}, nYPos: {}", normalisedCoords.x, normalisedCoords.y);
+  let clipCoords = Vector4 { x: normalisedCoords.x, y: normalisedCoords.y, z: -1.0, w: 1.0 };
+  let eyeCoords = toEyeCoords(clipCoords, *projectionMatrix);
+  println!("Eye: {}, {}, {}, {}", eyeCoords.x, eyeCoords.y, eyeCoords.z, eyeCoords.w);
+  let worldCoords = toWorldCoords(eyeCoords, cam.getViewMatrix());
+  println!("World: {}, {}, {}", worldCoords.x, worldCoords.y, worldCoords.z);
+
+  let scaledWorld = worldCoords * DRAW_DISTANCE;
+
+  let start = Vector3 { x: cam.Position.x, y: cam.Position.y, z: cam.Position.z };
+  let end = Vector3 { x: cam.Position.x + scaledWorld.x, y: cam.Position.y + scaledWorld.y, z: cam.Position.z + scaledWorld.z };
+  println!{"Line start/end: {}, {}, {} -> {}, {}, {}", start.x, start.y, start.z, end.x, end.y, end.z};
+  (start, end)
+}
+
+fn getNormalisedDeviceCoords(mouseX: f32, mouseY: f32) -> Vector2<f32> {
+  Vector2 { x: (mouseX*2.0 / SCR_WIDTH as f32) - 1.0, y: 1.0 - (mouseY*2.0 / SCR_HEIGHT as f32) }
+}
+
+fn toEyeCoords(clipCoords: Vector4<f32>, projectionMatrix: Matrix4<f32>) -> Vector4<f32> {
+  let invProjection = projectionMatrix.invert().unwrap();
+  let transformedV = invProjection * clipCoords;
+  Vector4{ x: transformedV.x, y: transformedV.y, z: -1.0, w: 0.0 }
+}
+
+fn toWorldCoords(eyeCoords: Vector4<f32>, viewMatrix: Matrix4<f32>) -> Vector3<f32> {
+  let invView = viewMatrix.invert().unwrap();
+  let transformedV = invView * eyeCoords;
+  let result = Vector3{ x: transformedV.x, y: transformedV.y, z: transformedV.z };
+  result.normalize()
 }
 
 pub unsafe fn TextureFromFile(path: &str, directory: &str) -> u32 {
   let filename = format!("{}/{}", directory, path);
+  println!("Filename: {}", filename);
 
   let mut textureID = 0;
   gl::GenTextures(1, &mut textureID);

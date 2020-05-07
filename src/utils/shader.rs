@@ -1,12 +1,11 @@
 #![allow(non_snake_case)]
+use gl;
+use gl::types::*;
+
 use std::ffi::{CStr, CString};
 use std::fs::File;
 use std::io::Read;
-use std::ptr;
-use std::str;
-
-use gl;
-use gl::types::*;
+use std::{ptr, str};
 
 use cgmath::prelude::*;
 use cgmath::{Matrix, Matrix4, Vector3};

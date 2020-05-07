@@ -17,7 +17,7 @@ pub enum Camera_Movement {
   RIGHT,
 }
 
-const YAW: f32 = -90.0;
+const YAW: f32 = 45.0;
 const PITCH: f32 = 0.0;
 const SPEED: f32 = 5.0;
 const SENSITIVTY: f32 = 0.1;
@@ -59,11 +59,11 @@ impl Default for Camera {
 
 use Camera_Movement::*;
 impl Camera {
-  pub fn GetViewMatrix(&self) -> Matrix4 {
+  pub fn getViewMatrix(&self) -> Matrix4 {
     Matrix4::look_at(self.Position, self.Position + self.Front, self.Up)
   }
 
-  pub fn ProcessKeyboard(&mut self, direction: Camera_Movement, deltaTime: f32) {
+  pub fn processKeyboard(&mut self, direction: Camera_Movement, deltaTime: f32) {
     let velocity = self.MovementSpeed * deltaTime;
     match direction {
       FORWARD => self.Position += self.Front * velocity,
@@ -73,7 +73,7 @@ impl Camera {
     }
   }
 
-  pub fn ProcessMouseMovement(&mut self, mut xoffset: f32, mut yoffset: f32, constrainPitch: bool) {
+  pub fn processMouseMovement(&mut self, mut xoffset: f32, mut yoffset: f32, constrainPitch: bool) {
     xoffset *= self.MouseSensitivity;
     yoffset *= self.MouseSensitivity;
     self.Yaw += xoffset;
@@ -91,7 +91,7 @@ impl Camera {
     self.updateCameraVectors();
   }
 
-  pub fn ProcessMouseScroll(&mut self, yoffset: f32) {
+  pub fn processMouseScroll(&mut self, yoffset: f32) {
     if self.Zoom >= 1.0 && self.Zoom <= 45.0 {
       self.Zoom -= yoffset;
     }

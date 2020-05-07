@@ -2,15 +2,17 @@
 #![allow(dead_code)]
 
 use std::ffi::CString;
+use std::ffi::CStr;
 use std::mem::size_of;
 use std::os::raw::c_void;
 use std::ptr;
 
 use cgmath::prelude::*;
-use cgmath::{Vector2, Vector3};
+use cgmath::{Vector2, Vector3, vec3, Matrix4};
 use gl;
 
 use super::shader::Shader;
+use crate::c_str;
 
 // NOTE: without repr(C) the compiler may reorder the fields or use different padding/alignment than C.
 // Depending on how you pass the data to OpenGL, this may be bad. In this case it's not strictly
@@ -47,10 +49,52 @@ pub struct Mesh {
   pub vertices: Vec<Vertex>,
   pub indices: Vec<u32>,
   pub textures: Vec<Texture>,
-  pub VAO: u32,
-
+  VAO: u32,
   VBO: u32,
   EBO: u32,
+}
+
+#[repr(C)]
+pub struct Line {
+  pub coords: Vec<Vector3<f32>>,
+  VAO: u32,
+  VBO: u32
+}
+
+impl Line {
+  pub fn new(start: Vector3<f32>, end: Vector3<f32>) -> Line {
+    let mut line = Line { coords: vec![start, end], VAO: 0, VBO: 0 };
+    unsafe { line.setupLine() };
+    line
+  }
+
+  pub unsafe fn draw(&self, shader: &Shader, view: Matrix4<f32>) {
+    let model = Matrix4::from_translation(vec3(0.0,0.0,0.0));
+    shader.useProgram();
+    shader.setMat4(c_str!("model"), &model);
+    shader.setMat4(c_str!("view"), &view);
+    shader.setMat4(c_str!("projection"), &shader.projection);
+    gl::BindVertexArray(self.VAO);
+    gl::DrawArrays(gl::LINES, 0, self.coords.len() as i32);
+    gl::BindVertexArray(0);
+  }
+
+  unsafe fn setupLine(&mut self) {
+    gl::GenVertexArrays(1, &mut self.VAO);
+    gl::GenBuffers(1, &mut self.VBO);
+
+    gl::BindVertexArray(self.VAO);
+    gl::BindBuffer(gl::ARRAY_BUFFER, self.VBO);
+
+    let size = (self.coords.len() * size_of::<Vector3<f32>>()) as isize;
+    let data = &self.coords[0] as *const Vector3<f32> as *const c_void;
+    gl::BufferData(gl::ARRAY_BUFFER, size, data, gl::STATIC_DRAW);
+
+    let size = size_of::<Vector3<f32>>() as i32;
+    gl::EnableVertexAttribArray(0);
+    gl::VertexAttribPointer(0, 3, gl::FLOAT, gl::FALSE, size, 0 as *const c_void);
+    gl::BindVertexArray(0);
+  }
 }
 
 impl Mesh {

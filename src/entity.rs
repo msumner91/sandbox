@@ -1,11 +1,12 @@
-use crate::c_str;
-use crate::utils::mesh::*;
-use crate::utils::shader::Shader;
-use cgmath::{vec3, Matrix4, Point3, Vector3, Rad};
 extern crate glfw;
 use self::glfw::Key;
 
 use std::ffi::CStr;
+
+use crate::c_str;
+use crate::utils::mesh::*;
+use crate::utils::shader::Shader;
+use cgmath::{vec3, Matrix4, Point3, Vector3, Rad};
 
 pub struct Entity {
   meshes: Vec<Mesh>,
@@ -42,7 +43,7 @@ impl Entity {
     }
   }
 
-  pub fn ProcessKeyboard(&mut self, key: Key, deltaTime: f32) {
+  pub fn processKeyboard(&mut self, key: Key, deltaTime: f32) {
     let velocity = self.speed * deltaTime;
     match key {
       Key::Q => { self.worldPos.x = self.worldPos.x + velocity; self.worldPos.z = self.worldPos.z + velocity },

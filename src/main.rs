@@ -17,12 +17,13 @@ use entity::Entity;
 
 const SCR_WIDTH: u32 = 3840;
 const SCR_HEIGHT: u32 = 2160;
+const DRAW_DISTANCE: f32 = 1000.0;
 
 pub fn main() {
 
   // Gl init
   let mut glfw = initGlfw();
-  let (mut window, events) = createAndInitWindow(glfw, SCR_WIDTH, SCR_HEIGHT);
+  let (mut window, events) = createAndInitWindow(&mut glfw, SCR_WIDTH, SCR_HEIGHT);
   initGl(&mut window);
 
   // Camera/Mouse data
@@ -32,23 +33,25 @@ pub fn main() {
   let mut deltaTime: f32 = 0.0;
   let mut lastFrame: f32 = 0.0;
   let mut camera = Camera {
-    Position: Point3::new(0.0, 30.0, 3.0),
+    Position: Point3::new(0.0, 32.0, 0.0),
     ..Camera::default()
   };
 
   // Shaders
-  let projection = perspective(Deg(camera.Zoom), SCR_WIDTH as f32 / SCR_HEIGHT as f32, 0.1, 200.0);
+  let projection = perspective(Deg(camera.Zoom), SCR_WIDTH as f32 / SCR_HEIGHT as f32, 0.1, DRAW_DISTANCE);
   let mainShader = Shader::new("src/shaders/mainVertex.vs", "src/shaders/mainFragment.fs", projection);
+  let lineShader = Shader::new("src/shaders/lineVertex.vs", "src/shaders/lineFragment.fs", projection);
   let terrainShader = Shader::new("src/shaders/terrVertex.vs", "src/shaders/terrFragment.fs", projection);
 
   // Terrain/Entities
   let terrain = Terrain::new(Point3::new(0.0, 0.0, 0.0), vec3(Rad(0.0), Rad(0.0), Rad(0.0)), 1.0);
-  let mut nanoEntity = Entity::new(Model::new("resources/objects/nanosuit/nanosuit.obj").meshes, Point3::new(20.0, terrain.getHeight(20.0, 20.0), 20.0), vec3(Rad(0.0), Rad(0.0), Rad(0.0)), 0.2);
+  let mut nanoEntity = Entity::new(Model::new("resources/objects/cube/cube.obj").meshes, Point3::new(20.0, terrain.getHeight(20.0, 20.0), 20.0), vec3(Rad(0.0), Rad(0.0), Rad(0.0)), 1.0);
+  let mut lines = vec![];
 
   while !window.should_close() {
     updateTimings(glfw, &mut deltaTime, &mut lastFrame);
-    process_events(&events, &mut firstMouse, &mut lastX, &mut lastY, &mut camera);
-    processInput(&mut window, deltaTime, &mut camera, &mut nanoEntity);
+    process_events(&mut window, &events, &mut firstMouse, &mut lastX, &mut lastY, &mut camera, &projection);
+    processInput(&mut window, deltaTime, &mut camera, &mut nanoEntity, &mut lines, lastX, lastY, &projection);
     
     nanoEntity.worldPos.y = terrain.getHeight(nanoEntity.worldPos.x, nanoEntity.worldPos.z);
 
@@ -56,9 +59,13 @@ pub fn main() {
       gl::ClearColor(0.1, 0.1, 0.1, 1.0);
       gl::Clear(gl::COLOR_BUFFER_BIT | gl::DEPTH_BUFFER_BIT);
       
-      let view = camera.GetViewMatrix();
+      let view = camera.getViewMatrix();
       terrain.entity.draw(&terrainShader, view);
       nanoEntity.draw(&mainShader, view);
+
+      for l in lines.iter() {
+        l.draw(&lineShader, view);
+      }
     }
 
     window.swap_buffers();
