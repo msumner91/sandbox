@@ -42,7 +42,7 @@ pub fn initGl(window: &mut Window) -> () {
   unsafe {
     gl::load_with(|symbol| window.get_proc_address(symbol) as *const _);
     gl::Enable(gl::DEPTH_TEST);
-    gl::PolygonMode(gl::FRONT_AND_BACK, gl::LINE);
+    // gl::PolygonMode(gl::FRONT_AND_BACK, gl::LINE);
   }
 }
 

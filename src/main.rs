@@ -1,5 +1,4 @@
 #![allow(non_snake_case)]
-
 extern crate gl;
 extern crate glfw;
 use self::glfw::Context;
@@ -33,12 +32,12 @@ pub fn main() {
   let mut deltaTime: f32 = 0.0;
   let mut lastFrame: f32 = 0.0;
   let mut camera = Camera {
-    Position: Point3::new(0.0, 0.0, 3.0),
+    Position: Point3::new(0.0, 30.0, 3.0),
     ..Camera::default()
   };
 
   // Shaders
-  let projection = perspective(Deg(camera.Zoom), SCR_WIDTH as f32 / SCR_HEIGHT as f32, 0.1, 100.0);
+  let projection = perspective(Deg(camera.Zoom), SCR_WIDTH as f32 / SCR_HEIGHT as f32, 0.1, 200.0);
   let mainShader = Shader::new("src/shaders/mainVertex.vs", "src/shaders/mainFragment.fs", projection);
   let terrainShader = Shader::new("src/shaders/terrVertex.vs", "src/shaders/terrFragment.fs", projection);
 
@@ -51,13 +50,13 @@ pub fn main() {
     process_events(&events, &mut firstMouse, &mut lastX, &mut lastY, &mut camera);
     processInput(&mut window, deltaTime, &mut camera, &mut nanoEntity);
     
-    let view = camera.GetViewMatrix();
     nanoEntity.worldPos.y = terrain.getHeight(nanoEntity.worldPos.x, nanoEntity.worldPos.z);
 
     unsafe {
       gl::ClearColor(0.1, 0.1, 0.1, 1.0);
       gl::Clear(gl::COLOR_BUFFER_BIT | gl::DEPTH_BUFFER_BIT);
       
+      let view = camera.GetViewMatrix();
       terrain.entity.draw(&terrainShader, view);
       nanoEntity.draw(&mainShader, view);
     }
