@@ -11,16 +11,15 @@ use super::mesh::{Mesh, Texture, Vertex};
 use super::shader::Shader;
 use super::common::*;
 
-#[derive(Default)]
 pub struct Model {
   pub meshes: Vec<Mesh>,
-  pub textures_loaded: HashMap<String, Texture>,
+  pub texturesLoaded: HashMap<String, Texture>,
   directory: String,
 }
 
 impl Model {
   pub fn new(path: &str) -> Model {
-    let mut model = Model::default();
+    let mut model = Model { meshes: vec![], texturesLoaded: HashMap::default(), directory: String::default() };
     model.loadModel(path);
     model
   }
@@ -49,7 +48,7 @@ impl Model {
       let (p, n, t) = (&mesh.positions, &mesh.normals, &mesh.texcoords);
       for i in 0..num_vertices {
         vertices.push(Vertex {
-          Position: vec3(p[i * 3], p[i * 3 + 1], p[i * 3 + 2]),
+          Position: vec3(p[i*3], p[i*3+1], p[i*3+2]),
           Normal: vec3(n[i * 3], n[i * 3 + 1], n[i * 3 + 2]),
           TexCoords: vec2(t[i * 2], t[i * 2 + 1]),
           ..Vertex::default()
@@ -82,18 +81,18 @@ impl Model {
 
   fn loadMaterialTexture(&mut self, path: &str, typeName: &str) -> Texture {
     {
-      let texOpt = self.textures_loaded.get(path);
+      let texOpt = self.texturesLoaded.get(path);
       if let Some(tex) = texOpt {
         return tex.clone();
       }
     }
 
     let texture = Texture {
-      id: unsafe { TextureFromFile(path, &self.directory) },
+      id: unsafe { textureFromFile(path, &self.directory) },
       type_: typeName.into(),
       path: path.into(),
     };
-    self.textures_loaded.insert(path.into(), texture.clone());
+    self.texturesLoaded.insert(path.into(), texture.clone());
     texture
   }
 }

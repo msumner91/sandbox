@@ -159,7 +159,7 @@ fn toWorldCoords(eyeCoords: Vector4<f32>, viewMatrix: Matrix4<f32>) -> Vector3<f
   result.normalize()
 }
 
-pub unsafe fn TextureFromFile(path: &str, directory: &str) -> u32 {
+pub unsafe fn textureFromFile(path: &str, directory: &str) -> u32 {
   let filename = format!("{}/{}", directory, path);
   println!("Filename: {}", filename);
 

@@ -19,7 +19,7 @@ pub enum Camera_Movement {
 
 const YAW: f32 = 45.0;
 const PITCH: f32 = 0.0;
-const SPEED: f32 = 5.0;
+const SPEED: f32 = 40.0;
 const SENSITIVTY: f32 = 0.1;
 const ZOOM: f32 = 45.0;
 

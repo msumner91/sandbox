@@ -12,7 +12,7 @@ use super::mesh::{Mesh, Vertex, Texture};
 use super::common::*;
 use crate::entity::Entity;
 
-const SCALE: f32 = 10.0;
+const SCALE: f32 = 40.0;
 const MAX_PIXEL_COLOR: f32 = 128 as f32;
 const SIZE: f32 = 800.0;
 type Heights = HashMap<(u32, u32), f32>;
@@ -39,20 +39,12 @@ impl Terrain {
     let xCoordInSquare = (terrainX % squareSize)/squareSize;
     let zCoordInSquare = (terrainZ % squareSize)/squareSize;
     if xCoordInSquare <= (1.0 - zCoordInSquare) {
-      /* let p1 = *self.heights.get(&(x, z)).unwrap_or(&0.0);
-      let p2 = *self.heights.get(&(x+1, z)).unwrap_or(&0.0);
-      let p3  = *self.heights.get(&(x, z+1)).unwrap_or(&0.0);
-      println!("p1: {}\np2: {}\np3:{}", p1, p2, p3);*/
       barryCentric(
         vec3(0.0, *self.heights.get(&(x, z)).unwrap_or(&0.0), 0.0), 
         vec3(1.0, *self.heights.get(&(x+1, z)).unwrap_or(&0.0), 0.0), 
         vec3(0.0, *self.heights.get(&(x, z+1)).unwrap_or(&0.0), 1.0), vec2(xCoordInSquare, zCoordInSquare)
       )
     } else {
-      /*let p1 = *self.heights.get(&(x+1, z)).unwrap_or(&0.0);
-      let p2 = *self.heights.get(&(x+1,z+1)).unwrap_or(&0.0);
-      let p3 = *self.heights.get(&(x,z+1)).unwrap_or(&0.0);
-      println!("p1: {}\np2: {}\np3:{}", p1, p2, p3);*/
       barryCentric(
         vec3(1.0, *self.heights.get(&(x+1, z)).unwrap_or(&0.0), 0.0), 
         vec3(1.0, *self.heights.get(&(x+1,z+1)).unwrap_or(&0.0), 1.0), 
@@ -69,14 +61,12 @@ fn genTerrain(heightMap: &str) -> (Mesh, Heights) {
   let (vertices, heights) = genVertices(img, VERTEX_COUNT);
   let indices = genIndices(VERTEX_COUNT);
   let texture = Texture { 
-    id: unsafe { TextureFromFile("grass2.jpg", "resources/textures") }, 
+    id: unsafe { textureFromFile("grass.jpg", "resources/textures") }, 
     type_: "texture_normal".into(), 
-    path: "grass2.jpg".into()
+    path: "grass.jpg".into()
   };
 
-  let mesh = Mesh::new(vertices, 
-                       indices, 
-                       vec![texture]);
+  let mesh = Mesh::new(vertices, indices, vec![texture]);
   (mesh, heights)
 }
 
