@@ -1,6 +1,4 @@
-
-#![allow(dead_code)]
-#![allow(unused_variables)]
+#![allow(non_snake_case)]
 use std::collections::HashMap;
 use std::path::Path;
 

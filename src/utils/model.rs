@@ -1,6 +1,4 @@
 #![allow(non_snake_case)]
-#![allow(dead_code)]
-
 use std::collections::HashMap;
 use std::path::Path;
 
@@ -8,7 +6,6 @@ use cgmath::{vec2, vec3};
 use tobj;
 
 use super::mesh::{Mesh, Texture, Vertex};
-use super::shader::Shader;
 use super::common::*;
 
 pub struct Model {
@@ -22,14 +19,6 @@ impl Model {
     let mut model = Model { meshes: vec![], texturesLoaded: HashMap::default(), directory: String::default() };
     model.loadModel(path);
     model
-  }
-
-  pub fn Draw(&self, shader: &Shader) {
-    for mesh in &self.meshes {
-      unsafe {
-        mesh.draw(shader);
-      }
-    }
   }
 
   fn loadModel(&mut self, path: &str) {

@@ -1,21 +1,19 @@
 #![allow(non_snake_case)]
-#![allow(dead_code)]
 extern crate glfw;
-use self::glfw::{Context, Glfw, Window, WindowEvent, Action, Key, MouseButtonLeft, MouseButtonRight};
+use self::glfw::{Context, Glfw, Window, WindowEvent, Action, Key, MouseButtonLeft};
 use gl;
 
 use std::sync::mpsc::Receiver;
 use std::os::raw::c_void;
 use std::path::Path;
 
-use cgmath::{Vector2, Vector3, Vector4, Matrix4, SquareMatrix, InnerSpace};
+use cgmath::Matrix4;
 use image::*;
 
-use super::camera::Camera;
-use super::camera::Camera_Movement::*;
-use super::mesh::Line;
+use super::camera::{Camera, CameraMovement::*};
 use crate::entity::Entity;
-use crate::{SCR_WIDTH, SCR_HEIGHT, DRAW_DISTANCE};
+use super::mesh::Line;
+use super::maths::translateCoords;
 
 pub fn initGlfw() -> Glfw {
   let mut glfw = glfw::init(glfw::FAIL_ON_ERRORS).unwrap();
@@ -42,6 +40,7 @@ pub fn initGl(window: &mut Window) -> () {
   unsafe {
     gl::load_with(|symbol| window.get_proc_address(symbol) as *const _);
     gl::Enable(gl::DEPTH_TEST);
+    gl::LineWidth(20.0);
     // gl::PolygonMode(gl::FRONT_AND_BACK, gl::LINE);
   }
 }
@@ -52,15 +51,7 @@ pub fn updateTimings(glfw: Glfw, deltaTime: &mut f32, lastFrame: &mut f32) -> ()
   *lastFrame = currentFrame;
 }
 
-pub fn process_events(
-  window: &mut glfw::Window,
-  events: &Receiver<(f64, glfw::WindowEvent)>,
-  firstMouse: &mut bool,
-  lastX: &mut f32,
-  lastY: &mut f32,
-  camera: &mut Camera,
-  projectionMatrix: &Matrix4<f32>
-) {
+pub fn process_events(window: &mut glfw::Window, events: &Receiver<(f64, glfw::WindowEvent)>, firstMouse: &mut bool, lastX: &mut f32, lastY: &mut f32, camera: &mut Camera) {
   for (_, event) in glfw::flush_messages(events) {
     match event {
       glfw::WindowEvent::FramebufferSize(width, height) => {
@@ -68,10 +59,9 @@ pub fn process_events(
         // height will be significantly larger than specified on retina displays.
         unsafe { gl::Viewport(0, 0, width, height) }
       }
+
       glfw::WindowEvent::CursorPos(xpos, ypos) => {
         let (xpos, ypos) = (xpos as f32, ypos as f32);
-
-        // Only run once for initial pos
         if *firstMouse {
           *lastX = xpos;
           *lastY = ypos;
@@ -79,7 +69,7 @@ pub fn process_events(
         }
 
         let xoffset = xpos - *lastX;
-        let yoffset = *lastY - ypos; // reversed since y-coordinates go from bottom to top
+        let yoffset = *lastY - ypos;
 
         *lastX = xpos;
         *lastY = ypos;
@@ -87,8 +77,6 @@ pub fn process_events(
         if window.get_mouse_button(MouseButtonLeft) == Action::Press {
           camera.processMouseMovement(xoffset, yoffset, true);
         }
-
-        translateCoords(xpos, ypos, projectionMatrix, camera);
       }
 
       glfw::WindowEvent::Scroll(_xoffset, yoffset) => camera.processMouseScroll(yoffset as f32),
@@ -114,49 +102,25 @@ pub fn processInput(window: &mut glfw::Window, deltaTime: f32, camera: &mut Came
   if window.get_key(Key::D) == Action::Press {
     camera.processKeyboard(RIGHT, deltaTime);
   }
-  if window.get_key(Key::Q) == Action::Press {
-    nanoEntity.processKeyboard(Key::Q, deltaTime);
+
+  let (up, down, left, right) = (window.get_key(Key::Up), window.get_key(Key::Down), window.get_key(Key::Left), window.get_key(Key::Right));
+  if up == Action::Press {
+    nanoEntity.processKeyboard(Key::Up, deltaTime);
+  }
+  if down == Action::Press {
+    nanoEntity.processKeyboard(Key::Down, deltaTime);
+  }
+  if left == Action::Press {
+    nanoEntity.processKeyboard(Key::Left, deltaTime);
+  }
+  if right == Action::Press {
+    nanoEntity.processKeyboard(Key::Right, deltaTime);
   }
 
-  if window.get_mouse_button(MouseButtonRight) == Action::Press {
+  if window.get_key(Key::Q) == Action::Press {
     let (start, end) = translateCoords(lastX, lastY, projectionMatrix, camera);
     lines.push(Line::new(start, end));
   }
-}
-
-pub fn translateCoords(xpos: f32, ypos: f32, projectionMatrix: &Matrix4<f32>, cam: &Camera) -> (Vector3<f32>, Vector3<f32>) {
-  println!("xpos: {}, ypos: {}", xpos, ypos);
-  let normalisedCoords = getNormalisedDeviceCoords(xpos, ypos);
-  println!("nXPos: {}, nYPos: {}", normalisedCoords.x, normalisedCoords.y);
-  let clipCoords = Vector4 { x: normalisedCoords.x, y: normalisedCoords.y, z: -1.0, w: 1.0 };
-  let eyeCoords = toEyeCoords(clipCoords, *projectionMatrix);
-  println!("Eye: {}, {}, {}, {}", eyeCoords.x, eyeCoords.y, eyeCoords.z, eyeCoords.w);
-  let worldCoords = toWorldCoords(eyeCoords, cam.getViewMatrix());
-  println!("World: {}, {}, {}", worldCoords.x, worldCoords.y, worldCoords.z);
-
-  let scaledWorld = worldCoords * DRAW_DISTANCE;
-
-  let start = Vector3 { x: cam.Position.x, y: cam.Position.y, z: cam.Position.z };
-  let end = Vector3 { x: cam.Position.x + scaledWorld.x, y: cam.Position.y + scaledWorld.y, z: cam.Position.z + scaledWorld.z };
-  println!{"Line start/end: {}, {}, {} -> {}, {}, {}", start.x, start.y, start.z, end.x, end.y, end.z};
-  (start, end)
-}
-
-fn getNormalisedDeviceCoords(mouseX: f32, mouseY: f32) -> Vector2<f32> {
-  Vector2 { x: (mouseX*2.0 / SCR_WIDTH as f32) - 1.0, y: 1.0 - (mouseY*2.0 / SCR_HEIGHT as f32) }
-}
-
-fn toEyeCoords(clipCoords: Vector4<f32>, projectionMatrix: Matrix4<f32>) -> Vector4<f32> {
-  let invProjection = projectionMatrix.invert().unwrap();
-  let transformedV = invProjection * clipCoords;
-  Vector4{ x: transformedV.x, y: transformedV.y, z: -1.0, w: 0.0 }
-}
-
-fn toWorldCoords(eyeCoords: Vector4<f32>, viewMatrix: Matrix4<f32>) -> Vector3<f32> {
-  let invView = viewMatrix.invert().unwrap();
-  let transformedV = invView * eyeCoords;
-  let result = Vector3{ x: transformedV.x, y: transformedV.y, z: transformedV.z };
-  result.normalize()
 }
 
 pub unsafe fn textureFromFile(path: &str, directory: &str) -> u32 {
@@ -176,25 +140,12 @@ pub unsafe fn textureFromFile(path: &str, directory: &str) -> u32 {
   };
 
   let data = img.raw_pixels();
-
   gl::BindTexture(gl::TEXTURE_2D, textureID);
-  gl::TexImage2D(
-    gl::TEXTURE_2D,
-    0,
-    format as i32,
-    img.width() as i32,
-    img.height() as i32,
-    0,
-    format,
-    gl::UNSIGNED_BYTE,
-    &data[0] as *const u8 as *const c_void,
-  );
+  gl::TexImage2D(gl::TEXTURE_2D, 0, format as i32, img.width() as i32, img.height() as i32, 0, format, gl::UNSIGNED_BYTE, &data[0] as *const u8 as *const c_void);
   gl::GenerateMipmap(gl::TEXTURE_2D);
-
   gl::TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_WRAP_S, gl::REPEAT as i32);
   gl::TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_WRAP_T, gl::REPEAT as i32);
   gl::TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_MIN_FILTER, gl::LINEAR_MIPMAP_LINEAR as i32);
   gl::TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_MAG_FILTER, gl::LINEAR as i32);
-
   textureID
 }

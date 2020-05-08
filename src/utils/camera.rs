@@ -1,7 +1,4 @@
-#![allow(non_camel_case_types)]
 #![allow(non_snake_case)]
-#![allow(dead_code)]
-
 use cgmath;
 use cgmath::prelude::*;
 use cgmath::vec3;
@@ -10,7 +7,7 @@ type Point3 = cgmath::Point3<f32>;
 type Vector3 = cgmath::Vector3<f32>;
 type Matrix4 = cgmath::Matrix4<f32>;
 
-pub enum Camera_Movement {
+pub enum CameraMovement {
   FORWARD,
   BACKWARD,
   LEFT,
@@ -43,8 +40,8 @@ impl Default for Camera {
     let mut camera = Camera {
       Position: Point3::new(0.0, 0.0, 0.0),
       Front: vec3(0.0, 0.0, -1.0),
-      Up: Vector3::zero(),    // initialized later
-      Right: Vector3::zero(), // initialized later
+      Up: Vector3::zero(), 
+      Right: Vector3::zero(),
       WorldUp: Vector3::unit_y(),
       Yaw: YAW,
       Pitch: PITCH,
@@ -57,13 +54,13 @@ impl Default for Camera {
   }
 }
 
-use Camera_Movement::*;
+use CameraMovement::*;
 impl Camera {
   pub fn getViewMatrix(&self) -> Matrix4 {
     Matrix4::look_at(self.Position, self.Position + self.Front, self.Up)
   }
 
-  pub fn processKeyboard(&mut self, direction: Camera_Movement, deltaTime: f32) {
+  pub fn processKeyboard(&mut self, direction: CameraMovement, deltaTime: f32) {
     let velocity = self.MovementSpeed * deltaTime;
     match direction {
       FORWARD => self.Position += self.Front * velocity,

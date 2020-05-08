@@ -11,14 +11,13 @@ use cgmath::prelude::*;
 use cgmath::{Matrix, Matrix4, Vector3};
 
 pub struct Shader {
-  pub ID: u32,
-  pub projection: Matrix4<f32>
+  pub ID: u32
 }
 
 #[allow(dead_code)]
 impl Shader {
-  pub fn new(vertexPath: &str, fragmentPath: &str, projection: Matrix4<f32>) -> Shader {
-    let mut shader = Shader { ID: 0, projection: projection };
+  pub fn new(vertexPath: &str, fragmentPath: &str) -> Shader {
+    let mut shader = Shader { ID: 0 };
 
     let mut vShaderFile = File::open(vertexPath).unwrap_or_else(|_| panic!("Failed to open {}", vertexPath));
     let mut fShaderFile = File::open(fragmentPath).unwrap_or_else(|_| panic!("Failed to open {}", fragmentPath));
@@ -58,6 +57,22 @@ impl Shader {
     }
 
     shader
+  }
+
+  pub fn initShader(&self, model: &Matrix4<f32>, view: &Matrix4<f32>, projection: &Matrix4<f32>) {
+    unsafe {
+      self.useProgram();
+      self.setMat4(c_str!("model"), model);
+      self.setMat4(c_str!("view"), view);
+      self.setMat4(c_str!("projection"), projection);
+    }
+  }
+  
+  pub fn updateModel(&self, model: &Matrix4<f32>) {
+    unsafe {
+      self.useProgram();
+      self.setMat4(c_str!("model"), model);
+    }
   }
 
   pub unsafe fn useProgram(&self) {

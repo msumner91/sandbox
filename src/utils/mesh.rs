@@ -1,5 +1,5 @@
 #![allow(non_snake_case)]
-#![allow(dead_code)]
+use gl;
 
 use std::ffi::CString;
 use std::ffi::CStr;
@@ -8,15 +8,11 @@ use std::os::raw::c_void;
 use std::ptr;
 
 use cgmath::prelude::*;
-use cgmath::{Vector2, Vector3, vec3, Matrix4, Point3};
-use gl;
+use cgmath::{Vector2, Vector3, vec3, Matrix4};
 
 use super::shader::Shader;
 use crate::c_str;
 
-// NOTE: without repr(C) the compiler may reorder the fields or use different padding/alignment than C.
-// Depending on how you pass the data to OpenGL, this may be bad. In this case it's not strictly
-// necessary though because of the `offset!` macro used below in setupMesh()
 #[repr(C)]
 #[derive(Clone)]
 pub struct Vertex {
@@ -65,12 +61,14 @@ impl Line {
     line
   }
 
-  pub unsafe fn draw(&self, shader: &Shader, view: Matrix4<f32>) {
+  pub fn dir(&self) -> Vector3<f32> { (self.coords[1] - self.coords[0]).normalize() }
+
+  pub unsafe fn draw(&self, shader: &Shader, view: &Matrix4<f32>, projection: &Matrix4<f32>) {
     let model = Matrix4::from_translation(vec3(0.0,0.0,0.0));
     shader.useProgram();
     shader.setMat4(c_str!("model"), &model);
-    shader.setMat4(c_str!("view"), &view);
-    shader.setMat4(c_str!("projection"), &shader.projection);
+    shader.setMat4(c_str!("view"), view);
+    shader.setMat4(c_str!("projection"), projection);
     gl::BindVertexArray(self.VAO);
     gl::DrawArrays(gl::LINES, 0, self.coords.len() as i32);
     gl::BindVertexArray(0);
@@ -96,15 +94,7 @@ impl Line {
 
 impl Mesh {
   pub fn new(vertices: Vec<Vertex>, indices: Vec<u32>, textures: Vec<Texture>) -> Mesh {
-    let mut mesh = Mesh {
-      vertices,
-      indices,
-      textures,
-      VAO: 0,
-      VBO: 0,
-      EBO: 0
-    };
-
+    let mut mesh = Mesh { vertices, indices, textures, VAO: 0, VBO: 0, EBO: 0 };
     unsafe { mesh.setupMesh() }
     mesh
   }
@@ -116,22 +106,22 @@ impl Mesh {
 
     gl::BindVertexArray(self.VAO);
     gl::BindBuffer(gl::ARRAY_BUFFER, self.VBO);
-    let size = (self.vertices.len() * size_of::<Vertex>()) as isize;
-    let data = &self.vertices[0] as *const Vertex as *const c_void;
-    gl::BufferData(gl::ARRAY_BUFFER, size, data, gl::STATIC_DRAW);
+    let vSize = (self.vertices.len() * size_of::<Vertex>()) as isize;
+    let vData = &self.vertices[0] as *const Vertex as *const c_void;
+    gl::BufferData(gl::ARRAY_BUFFER, vSize, vData, gl::STATIC_DRAW);
 
     gl::BindBuffer(gl::ELEMENT_ARRAY_BUFFER, self.EBO);
-    let size = (self.indices.len() * size_of::<u32>()) as isize;
-    let data = &self.indices[0] as *const u32 as *const c_void;
-    gl::BufferData(gl::ELEMENT_ARRAY_BUFFER, size, data, gl::STATIC_DRAW);
+    let eSize = (self.indices.len() * size_of::<u32>()) as isize;
+    let eData = &self.indices[0] as *const u32 as *const c_void;
+    gl::BufferData(gl::ELEMENT_ARRAY_BUFFER, eSize, eData, gl::STATIC_DRAW);
 
-    let size = size_of::<Vertex>() as i32;
+    let attribSize = size_of::<Vertex>() as i32;
     gl::EnableVertexAttribArray(0);
-    gl::VertexAttribPointer(0, 3, gl::FLOAT, gl::FALSE, size, offset_of!(Vertex, Position) as *const c_void);
+    gl::VertexAttribPointer(0, 3, gl::FLOAT, gl::FALSE, attribSize, offset_of!(Vertex, Position) as *const c_void);
     gl::EnableVertexAttribArray(1);
-    gl::VertexAttribPointer(1, 3, gl::FLOAT, gl::FALSE, size, offset_of!(Vertex, Normal) as *const c_void);
+    gl::VertexAttribPointer(1, 3, gl::FLOAT, gl::FALSE, attribSize, offset_of!(Vertex, Normal) as *const c_void);
     gl::EnableVertexAttribArray(2);
-    gl::VertexAttribPointer(2, 2, gl::FLOAT, gl::FALSE, size, offset_of!(Vertex, TexCoords) as *const c_void);
+    gl::VertexAttribPointer(2, 2, gl::FLOAT, gl::FALSE, attribSize, offset_of!(Vertex, TexCoords) as *const c_void);
     gl::BindVertexArray(0);
   }
 
@@ -183,21 +173,4 @@ impl Mesh {
     gl::BindTexture(gl::TEXTURE_2D, 0);
     gl::ActiveTexture(gl::TEXTURE0);
   }
-}
-
-pub fn computeBoundingBoxTransform(vertices: &[Vertex]) -> Matrix4<f32> {
-  let mut min = Point3 { x: f32::MAX, y: f32::MAX, z: f32::MAX };
-  let mut max = Point3 { x: f32::MIN, y: f32::MIN, z: f32::MIN };
-  for v in vertices {
-    if v.Position.x < min.x { min.x = v.Position.x };
-    if v.Position.y < min.y { min.y = v.Position.y };
-    if v.Position.z < min.z { min.z = v.Position.z };
-    if v.Position.x > max.x { max.x = v.Position.x };
-    if v.Position.y > max.y { max.y = v.Position.y };
-    if v.Position.z > max.z { max.z = v.Position.z };
-  }
-
-  let size = vec3(max.x-min.x, max.y-min.y, max.z-min.z);
-  let center = vec3((min.x+max.x)/2.0, (min.y+max.y)/2.0, (min.z+max.z)/2.0);
-  Matrix4::from_translation(center) * Matrix4::from_nonuniform_scale(size[0], size[1], size[2])
 }
