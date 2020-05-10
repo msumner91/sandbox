@@ -4,11 +4,12 @@ use std::path::Path;
 
 use image;
 use image::GenericImage;
-use cgmath::{vec2, vec3, Vector2, Vector3, Point3, Rad, InnerSpace};
+use cgmath::{vec2, vec3, Rad, InnerSpace};
 
 use super::mesh::{Mesh, Vertex, Texture};
-use super::common::*;
+use crate::utils::common::*;
 use crate::entity::Entity;
+use crate::types::*;
 
 const SCALE: f32 = 40.0;
 const MAX_PIXEL_COLOR: f32 = 128 as f32;
@@ -23,7 +24,7 @@ pub struct Terrain {
 }
 
 impl Terrain {
-  pub fn new(worldPos: Point3<f32>, orientation: Vector3<Rad<f32>>, scale: f32) -> Terrain {
+  pub fn new(worldPos: Point3, orientation: cgmath::Vector3<Rad<f32>>, scale: f32) -> Terrain {
     let (mesh, heightArr) = genTerrain("resources/textures/heightmap.png");
     let e = Entity::new(vec![mesh], Point3{ x: worldPos.x, y: worldPos.y, z: worldPos.z }, orientation, scale, 0.0);
     Terrain { entity: e, heights: heightArr }
@@ -92,11 +93,15 @@ fn getHeightFromImage(x: u32, z: u32, img: &image::DynamicImage) -> f32 {
   }
 }
 
-fn calcNormal(x: u32, z: u32, heights: &mut Heights, img: &image::DynamicImage) -> Vector3<f32> {
-  let hL = if x == 0 { 0.0 } else { *heights.entry((x-1, z)).or_insert(getHeightFromImage(x-1, z, &img)) };
-  let hR = *heights.entry((x+1, z)).or_insert(getHeightFromImage(x+1, z, &img));
-  let hD = if z == 0 { 0.0 } else { *heights.entry((x, z-1)).or_insert(getHeightFromImage(x, z-1, &img)) };
-  let hU = *heights.entry((x, z+1)).or_insert(getHeightFromImage(x, z+1, &img));
+fn calcNormal(x: u32, z: u32, gridSize: u32, heights: &mut Heights, img: &image::DynamicImage) -> Vector3 {
+  let hLx = if x == 0 { x } else { x-1 };
+  let hRx = if x == gridSize - 1 { x } else { x+1 };
+  let hDz = if z == 0 { z } else { z-1 };
+  let hUz = if z == gridSize - 1 { z } else { z+1 };
+  let hL = *heights.entry((hLx, z)).or_insert(getHeightFromImage(hLx, z, &img));
+  let hR = *heights.entry((hRx, z)).or_insert(getHeightFromImage(hRx, z, &img));
+  let hD = *heights.entry((x, hDz)).or_insert(getHeightFromImage(x, hDz, &img));
+  let hU = *heights.entry((x, hUz)).or_insert(getHeightFromImage(x, hUz, &img));
   vec3(hL-hR, 2.0, hD-hU).normalize()
 }
 
@@ -110,7 +115,7 @@ fn genVertices(img: image::DynamicImage, VERTEX_COUNT: u32) -> (Vec<Vertex>, Hei
       let x = (gx as f32)/((VERTEX_COUNT - 1) as f32) * SIZE;
       let y = height;
       let z = (gz as f32)/((VERTEX_COUNT - 1) as f32) * SIZE;
-      let n = calcNormal(gx, gz, &mut heights, &img);
+      let n = calcNormal(gx, gz, VERTEX_COUNT, &mut heights, &img);
       let tX = (gx as f32)/((VERTEX_COUNT - 1) as f32);
       let tZ = (gz as f32)/((VERTEX_COUNT - 1) as f32);
 
@@ -141,7 +146,7 @@ fn genIndices(VERTEX_COUNT: u32) -> Vec<u32> {
   indices
 }
 
-fn barryCentric(p1: Vector3<f32>, p2: Vector3<f32>, p3: Vector3<f32>, pos: Vector2<f32>) -> f32 {
+fn barryCentric(p1: Vector3, p2: Vector3, p3: Vector3, pos: Vector2) -> f32 {
   let det = (p2.z - p3.z) * (p1.x - p3.x) + (p3.x - p2.x) * (p1.z - p3.z);
   let l1 = ((p2.z - p3.z) * (pos.x - p3.x) + (p3.x - p2.x) * (pos.y - p3.z)) / det;
   let l2 = ((p3.z - p1.z) * (pos.x - p3.x) + (p1.x - p3.x) * (pos.y - p3.z)) / det;

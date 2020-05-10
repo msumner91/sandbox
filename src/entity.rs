@@ -2,34 +2,35 @@
 extern crate glfw;
 use self::glfw::Key;
 
-use cgmath::{vec3, Matrix4, Point3, Vector3, Vector4, Rad};
+use cgmath::{vec3, Rad};
 
-use crate::utils::mesh::*;
+use crate::mesh::*;
 use crate::utils::maths::{computeBoundingBox, computeBoundingBoxTransform};
 use crate::utils::shader::Shader;
-use crate::utils::terrain::{Terrain, DEADZONE, BOUND_MAX};
+use crate::terrain::{Terrain, DEADZONE, BOUND_MAX};
+use crate::types::*;
 
 pub struct Entity {
   meshes: Vec<Mesh>,
   boundingBoxes: Vec<BoundingBox>,
-  boundingTransforms: Vec<Matrix4<f32>>,
-  pub worldPos: Point3<f32>,
-  pub orientation: Vector3<Rad<f32>>,
+  boundingTransforms: Vec<Matrix4>,
+  pub worldPos: Point3,
+  pub orientation: cgmath::Vector3<Rad<f32>>,
   pub scale: f32,
   speed: f32
 }
 
 struct BoundingBox {
-  min: Vector4<f32>,
-  max: Vector4<f32>
+  min: Vector4,
+  max: Vector4
 }
 
 impl BoundingBox {
-  pub fn new(min: Vector4<f32>, max: Vector4<f32>) -> BoundingBox { BoundingBox { min: min, max: max } }
+  pub fn new(min: Vector4, max: Vector4) -> BoundingBox { BoundingBox { min: min, max: max } }
 }
 
 impl Entity {
-  pub fn new(meshes: Vec<Mesh>, worldPos: Point3<f32>, orientation: Vector3<Rad<f32>>, scale: f32, speed: f32) -> Entity {
+  pub fn new(meshes: Vec<Mesh>, worldPos: Point3, orientation: cgmath::Vector3<Rad<f32>>, scale: f32, speed: f32) -> Entity {
     let mut boundingBoxes = Vec::with_capacity(meshes.len());
     let mut boundingTransforms = Vec::with_capacity(meshes.len());
     for m in &meshes { 
@@ -40,7 +41,7 @@ impl Entity {
     Entity { meshes, boundingBoxes, boundingTransforms, worldPos, orientation, scale, speed: speed }
   }
 
-  fn getModelMatrix(&self) -> Matrix4<f32> {
+  fn getModelMatrix(&self) -> Matrix4 {
     Matrix4::from_translation(vec3(self.worldPos.x, self.worldPos.y, self.worldPos.z)) * 
     Matrix4::from_angle_x(self.orientation.x) *
     Matrix4::from_angle_z(self.orientation.z) *
@@ -48,12 +49,12 @@ impl Entity {
     Matrix4::from_scale(self.scale)
   }
 
-  pub fn draw(&self, shader: &Shader, view: &Matrix4<f32>, projection: &Matrix4<f32>) {
+  pub fn draw(&self, shader: &Shader, view: &Matrix4, projection: &Matrix4) {
     shader.initShader(&self.getModelMatrix(), view, projection);
     for mesh in &self.meshes { unsafe { mesh.draw(shader) } }
   }
 
-  pub fn drawBoundingBox(&self, shader: &Shader, mesh: &Mesh, view: &Matrix4<f32>, projection: &Matrix4<f32>) {
+  pub fn drawBoundingBox(&self, shader: &Shader, mesh: &Mesh, view: &Matrix4, projection: &Matrix4) {
     let model = self.getModelMatrix();
     shader.initShader(&model, view, projection);
 
@@ -98,7 +99,7 @@ impl Entity {
     intersections
   }
 
-  pub fn processMouse(&mut self, dir: Vector3<f32>, terrain: &Terrain, deltaTime: f32) {
+  pub fn processMouse(&mut self, dir: Vector3, terrain: &Terrain, deltaTime: f32) {
     let velocity = self.speed * deltaTime;
     self.worldPos.x = (self.worldPos.x + (dir.x * velocity)).max(DEADZONE).min(BOUND_MAX);
     self.worldPos.z = (self.worldPos.z + (dir.z * velocity)).max(DEADZONE).min(BOUND_MAX);

@@ -1,13 +1,13 @@
-use cgmath::Vector3;
+use crate::types::Vector3;
 
 pub struct Light {
-  pub position: Vector3<f32>,
-  pub colour: Vector3<f32>,
-  pub attenuation: Vector3<f32>
+  pub position: Vector3,
+  pub colour: Vector3,
+  pub attenuation: Vector3
 }
 
 impl Light {
-  pub fn new(position: Vector3<f32>, colour: Vector3<f32>, attenuation: Vector3<f32>, brightness: f32) -> Light {
+  pub fn new(position: Vector3, colour: Vector3, attenuation: Vector3, brightness: f32) -> Light {
     Light { position, colour: (colour * brightness), attenuation }
   }
 }

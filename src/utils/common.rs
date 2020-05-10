@@ -7,14 +7,14 @@ use std::sync::mpsc::Receiver;
 use std::os::raw::c_void;
 use std::path::Path;
 
-use cgmath::Matrix4;
 use image::*;
 
-use super::camera::{Camera, CameraMovement::*};
-use crate::entity::Entity;
-use super::mesh::Line;
-use super::terrain::Terrain;
 use super::maths::translateCoords;
+use crate::camera::{Camera, CameraMovement::*};
+use crate::entity::Entity;
+use crate::mesh::Line;
+use crate::terrain::Terrain;
+use crate::types::Matrix4;
 
 pub fn initGlfw() -> Glfw {
   let mut glfw = glfw::init(glfw::FAIL_ON_ERRORS).unwrap();
@@ -92,7 +92,7 @@ pub fn process_events(window: &mut glfw::Window,
   }
 }
 
-pub fn processInput(window: &mut glfw::Window, deltaTime: f32, camera: &mut Camera, nanoEntity: &mut Entity, lastX: f32, lastY: f32, terrain: &Terrain, projectionMatrix: &Matrix4<f32>) {
+pub fn processInput(window: &mut glfw::Window, deltaTime: f32, camera: &mut Camera, nanoEntity: &mut Entity, lastX: f32, lastY: f32, terrain: &Terrain, projectionMatrix: &Matrix4) {
   if window.get_key(Key::Escape) == Action::Press {
     window.set_should_close(true)
   }

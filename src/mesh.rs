@@ -9,17 +9,18 @@ use std::os::raw::c_void;
 use std::ptr;
 
 use cgmath::prelude::*;
-use cgmath::{Vector2, Vector3, vec3, Matrix4};
+use cgmath::vec3;
 
-use super::shader::Shader;
-use crate::c_str;
+use crate::utils::shader::Shader;
+use crate::{c_str, offset_of};
+use crate::types::*;
 
 #[repr(C)]
 #[derive(Clone)]
 pub struct Vertex {
-  pub Position: Vector3<f32>,
-  pub Normal: Vector3<f32>,
-  pub TexCoords: Vector2<f32>
+  pub Position: Vector3,
+  pub Normal: Vector3,
+  pub TexCoords: Vector2
 }
 
 impl Default for Vertex {
@@ -50,21 +51,21 @@ pub struct Mesh {
 
 #[repr(C)]
 pub struct Line {
-  pub coords: Vec<Vector3<f32>>,
-  pub dir: Vector3<f32>,
+  pub coords: Vec<Vector3>,
+  pub dir: Vector3,
   VAO: u32,
   VBO: u32
 }
 
 impl Line {
-  pub fn new(start: Vector3<f32>, end: Vector3<f32>) -> Line {
+  pub fn new(start: Vector3, end: Vector3) -> Line {
     let dir = end - start;
     let mut line = Line { coords: vec![start, end], dir: dir.normalize(), VAO: 0, VBO: 0 };
     unsafe { line.setupLine() };
     line
   }
 
-  pub unsafe fn draw(&self, shader: &Shader, view: &Matrix4<f32>, projection: &Matrix4<f32>) {
+  pub unsafe fn draw(&self, shader: &Shader, view: &Matrix4, projection: &Matrix4) {
     let model = Matrix4::from_translation(vec3(0.0,0.0,0.0));
     shader.useProgram();
     shader.setMat4(c_str!("model"), &model);
@@ -82,11 +83,11 @@ impl Line {
     gl::BindVertexArray(self.VAO);
     gl::BindBuffer(gl::ARRAY_BUFFER, self.VBO);
 
-    let size = (self.coords.len() * size_of::<Vector3<f32>>()) as isize;
-    let data = &self.coords[0] as *const Vector3<f32> as *const c_void;
+    let size = (self.coords.len() * size_of::<Vector3>()) as isize;
+    let data = &self.coords[0] as *const Vector3 as *const c_void;
     gl::BufferData(gl::ARRAY_BUFFER, size, data, gl::STATIC_DRAW);
 
-    let size = size_of::<Vector3<f32>>() as i32;
+    let size = size_of::<Vector3>() as i32;
     gl::EnableVertexAttribArray(0);
     gl::VertexAttribPointer(0, 3, gl::FLOAT, gl::FALSE, size, 0 as *const c_void);
     gl::BindVertexArray(0);

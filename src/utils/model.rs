@@ -5,8 +5,8 @@ use std::path::Path;
 use cgmath::{vec2, vec3};
 use tobj;
 
-use super::mesh::{Mesh, Texture, Vertex};
 use super::common::*;
+use crate::mesh::{Mesh, Texture, Vertex};
 
 pub struct Model {
   pub meshes: Vec<Mesh>,

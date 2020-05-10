@@ -8,7 +8,8 @@ use std::io::Read;
 use std::{ptr, str};
 
 use cgmath::prelude::*;
-use cgmath::{Matrix, Matrix4, Vector3};
+
+use crate::types::*;
 
 pub struct Shader {
   pub ID: u32
@@ -59,7 +60,7 @@ impl Shader {
     shader
   }
 
-  pub fn initShader(&self, model: &Matrix4<f32>, view: &Matrix4<f32>, projection: &Matrix4<f32>) {
+  pub fn initShader(&self, model: &Matrix4, view: &Matrix4, projection: &Matrix4) {
     unsafe {
       self.useProgram();
       self.setMat4(c_str!("model"), model);
@@ -68,14 +69,14 @@ impl Shader {
     }
   }
   
-  pub fn updateModel(&self, model: &Matrix4<f32>) {
+  pub fn updateModel(&self, model: &Matrix4) {
     unsafe {
       self.useProgram();
       self.setMat4(c_str!("model"), model);
     }
   }
 
-  pub fn loadLight(&self, position: &Vector3<f32>, colour: &Vector3<f32>, attenuation: &Vector3<f32>) {
+  pub fn loadLight(&self, position: &Vector3, colour: &Vector3, attenuation: &Vector3) {
     unsafe {
       self.useProgram();
       self.setVector3(c_str!("lightPosition"), position);
@@ -108,7 +109,7 @@ impl Shader {
     gl::Uniform1f(gl::GetUniformLocation(self.ID, name.as_ptr()), value);
   }
 
-  pub unsafe fn setVector3(&self, name: &CStr, value: &Vector3<f32>) {
+  pub unsafe fn setVector3(&self, name: &CStr, value: &Vector3) {
     gl::Uniform3fv(gl::GetUniformLocation(self.ID, name.as_ptr()), 1, value.as_ptr());
   }
 
@@ -116,7 +117,7 @@ impl Shader {
     gl::Uniform3f(gl::GetUniformLocation(self.ID, name.as_ptr()), x, y, z);
   }
 
-  pub unsafe fn setMat4(&self, name: &CStr, mat: &Matrix4<f32>) {
+  pub unsafe fn setMat4(&self, name: &CStr, mat: &Matrix4) {
     gl::UniformMatrix4fv(
       gl::GetUniformLocation(self.ID, name.as_ptr()),
       1,
