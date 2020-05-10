@@ -12,6 +12,8 @@ pub enum CameraMovement {
   BACKWARD,
   LEFT,
   RIGHT,
+  UP,
+  DOWN
 }
 
 const YAW: f32 = 45.0;
@@ -67,6 +69,8 @@ impl Camera {
       BACKWARD => self.Position += -(self.Front * velocity),
       LEFT => self.Position += -(self.Right * velocity),
       RIGHT => self.Position += self.Right * velocity,
+      UP => self.Position += self.Up * velocity,
+      DOWN => self.Position -= self.Up * velocity
     }
   }
 

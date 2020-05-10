@@ -1,4 +1,5 @@
 #![allow(non_snake_case)]
+#![allow(dead_code)]
 use gl;
 
 use std::ffi::CString;
@@ -50,18 +51,18 @@ pub struct Mesh {
 #[repr(C)]
 pub struct Line {
   pub coords: Vec<Vector3<f32>>,
+  pub dir: Vector3<f32>,
   VAO: u32,
   VBO: u32
 }
 
 impl Line {
   pub fn new(start: Vector3<f32>, end: Vector3<f32>) -> Line {
-    let mut line = Line { coords: vec![start, end], VAO: 0, VBO: 0 };
+    let dir = end - start;
+    let mut line = Line { coords: vec![start, end], dir: dir.normalize(), VAO: 0, VBO: 0 };
     unsafe { line.setupLine() };
     line
   }
-
-  pub fn dir(&self) -> Vector3<f32> { (self.coords[1] - self.coords[0]).normalize() }
 
   pub unsafe fn draw(&self, shader: &Shader, view: &Matrix4<f32>, projection: &Matrix4<f32>) {
     let model = Matrix4::from_translation(vec3(0.0,0.0,0.0));
@@ -138,6 +139,7 @@ impl Mesh {
     let mut specularNr = 0;
     let mut normalNr = 0;
     let mut heightNr = 0;
+    let mut textureNr = 0;
     for (i, texture) in self.textures.iter().enumerate() {
       gl::ActiveTexture(gl::TEXTURE0 + i as u32); // active proper texture unit before binding
                                                   // retrieve texture number (the N in diffuse_textureN)
@@ -158,6 +160,10 @@ impl Mesh {
         "texture_height" => {
           heightNr += 1;
           heightNr
+        }
+        "textureSampler" => {
+          textureNr += 1;
+          textureNr
         }
         _ => panic!("unknown texture type"),
       };

@@ -4,7 +4,7 @@ use std::path::Path;
 
 use image;
 use image::GenericImage;
-use cgmath::{vec2, vec3, Vector2, Vector3, Point3, Rad};
+use cgmath::{vec2, vec3, Vector2, Vector3, Point3, Rad, InnerSpace};
 
 use super::mesh::{Mesh, Vertex, Texture};
 use super::common::*;
@@ -12,7 +12,9 @@ use crate::entity::Entity;
 
 const SCALE: f32 = 40.0;
 const MAX_PIXEL_COLOR: f32 = 128 as f32;
-const SIZE: f32 = 800.0;
+pub const SIZE: f32 = 800.0;
+pub const DEADZONE: f32 = 5.0;
+pub const BOUND_MAX: f32 = SIZE - DEADZONE;
 type Heights = HashMap<(u32, u32), f32>;
 
 pub struct Terrain {
@@ -23,7 +25,7 @@ pub struct Terrain {
 impl Terrain {
   pub fn new(worldPos: Point3<f32>, orientation: Vector3<Rad<f32>>, scale: f32) -> Terrain {
     let (mesh, heightArr) = genTerrain("resources/textures/heightmap.png");
-    let e = Entity::new(vec![mesh], Point3{ x: worldPos.x, y: worldPos.y, z: worldPos.z }, orientation, scale);
+    let e = Entity::new(vec![mesh], Point3{ x: worldPos.x, y: worldPos.y, z: worldPos.z }, orientation, scale, 0.0);
     Terrain { entity: e, heights: heightArr }
   }
   
@@ -58,13 +60,22 @@ fn genTerrain(heightMap: &str) -> (Mesh, Heights) {
 
   let (vertices, heights) = genVertices(img, VERTEX_COUNT);
   let indices = genIndices(VERTEX_COUNT);
-  let texture = Texture { 
-    id: unsafe { textureFromFile("grass.jpg", "resources/textures") }, 
-    type_: "texture_normal".into(), 
-    path: "grass.jpg".into()
+
+  let (grass, rock) = ("grass.png", "rock.jpg");
+  let dir = "resources/textures";
+  let grassTexture = Texture { 
+    id: unsafe { textureFromFile(grass, dir) }, 
+    type_: "textureSampler".into(), 
+    path: grass.into()
   };
 
-  let mesh = Mesh::new(vertices, indices, vec![texture]);
+  let rockTexture = Texture {
+    id: unsafe{ textureFromFile(rock, dir) },
+    type_: "textureSampler".into(),
+    path: rock.into()
+  };
+
+  let mesh = Mesh::new(vertices, indices, vec![grassTexture, rockTexture]);
   (mesh, heights)
 }
 
@@ -81,24 +92,29 @@ fn getHeightFromImage(x: u32, z: u32, img: &image::DynamicImage) -> f32 {
   }
 }
 
+fn calcNormal(x: u32, z: u32, heights: &mut Heights, img: &image::DynamicImage) -> Vector3<f32> {
+  let hL = if x == 0 { 0.0 } else { *heights.entry((x-1, z)).or_insert(getHeightFromImage(x-1, z, &img)) };
+  let hR = *heights.entry((x+1, z)).or_insert(getHeightFromImage(x+1, z, &img));
+  let hD = if z == 0 { 0.0 } else { *heights.entry((x, z-1)).or_insert(getHeightFromImage(x, z-1, &img)) };
+  let hU = *heights.entry((x, z+1)).or_insert(getHeightFromImage(x, z+1, &img));
+  vec3(hL-hR, 2.0, hD-hU).normalize()
+}
+
 fn genVertices(img: image::DynamicImage, VERTEX_COUNT: u32) -> (Vec<Vertex>, Heights) {
   let mut vertexVec: Vec<Vertex> = Vec::with_capacity((VERTEX_COUNT * VERTEX_COUNT) as usize);
   let mut heights: Heights = HashMap::default();
 
   for gz in 0..VERTEX_COUNT {
     for gx in 0..VERTEX_COUNT {
-      let height = getHeightFromImage(gx, gz, &img);
+      let height = *heights.entry((gx, gz)).or_insert(getHeightFromImage(gx, gz, &img));
       let x = (gx as f32)/((VERTEX_COUNT - 1) as f32) * SIZE;
       let y = height;
       let z = (gz as f32)/((VERTEX_COUNT - 1) as f32) * SIZE;
-      let xN  = 0.0;
-      let yN = 1.0;
-      let zN = 0.0;
+      let n = calcNormal(gx, gz, &mut heights, &img);
       let tX = (gx as f32)/((VERTEX_COUNT - 1) as f32);
       let tZ = (gz as f32)/((VERTEX_COUNT - 1) as f32);
 
-      vertexVec.push(Vertex { Position: vec3(x, y, z), Normal: vec3(xN, yN, zN), TexCoords: vec2(tX, tZ), ..Vertex::default() });
-      heights.insert((gx, gz), height);
+      vertexVec.push(Vertex { Position: vec3(x, y, z), Normal: n, TexCoords: vec2(tX, tZ), ..Vertex::default() });
     }
   }
 

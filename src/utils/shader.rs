@@ -75,6 +75,23 @@ impl Shader {
     }
   }
 
+  pub fn loadLight(&self, position: &Vector3<f32>, colour: &Vector3<f32>, attenuation: &Vector3<f32>) {
+    unsafe {
+      self.useProgram();
+      self.setVector3(c_str!("lightPosition"), position);
+      self.setVector3(c_str!("lightColour"), colour);
+      self.setVector3(c_str!("attenuation"), attenuation);
+    }
+  }
+
+  pub fn loadShine(&self, damper: f32, reflectivity: f32) {
+    unsafe {
+      self.useProgram();
+      self.setFloat(c_str!("shineDamper"), damper);
+      self.setFloat(c_str!("reflectivity"), reflectivity);
+    }
+  }
+
   pub unsafe fn useProgram(&self) {
     gl::UseProgram(self.ID)
   }

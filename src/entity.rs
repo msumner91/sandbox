@@ -7,6 +7,7 @@ use cgmath::{vec3, Matrix4, Point3, Vector3, Vector4, Rad};
 use crate::utils::mesh::*;
 use crate::utils::maths::{computeBoundingBox, computeBoundingBoxTransform};
 use crate::utils::shader::Shader;
+use crate::utils::terrain::{Terrain, DEADZONE, BOUND_MAX};
 
 pub struct Entity {
   meshes: Vec<Mesh>,
@@ -28,7 +29,7 @@ impl BoundingBox {
 }
 
 impl Entity {
-  pub fn new(meshes: Vec<Mesh>, worldPos: Point3<f32>, orientation: Vector3<Rad<f32>>, scale: f32) -> Entity {
+  pub fn new(meshes: Vec<Mesh>, worldPos: Point3<f32>, orientation: Vector3<Rad<f32>>, scale: f32, speed: f32) -> Entity {
     let mut boundingBoxes = Vec::with_capacity(meshes.len());
     let mut boundingTransforms = Vec::with_capacity(meshes.len());
     for m in &meshes { 
@@ -36,7 +37,7 @@ impl Entity {
       boundingBoxes.push(BoundingBox::new(min, max));
       boundingTransforms.push(computeBoundingBoxTransform(min, max)); 
     }
-    Entity { meshes, boundingBoxes, boundingTransforms, worldPos, orientation, scale, speed: 20.0 }
+    Entity { meshes, boundingBoxes, boundingTransforms, worldPos, orientation, scale, speed: speed }
   }
 
   fn getModelMatrix(&self) -> Matrix4<f32> {
@@ -71,22 +72,21 @@ impl Entity {
     for boundingBox in self.boundingBoxes.iter() {
       let vMin = model * boundingBox.min;
       let vMax = model * boundingBox.max;
-      let rayDir = ray.dir();
 
-      let mut tMin = (vMin.x - ray.coords[0].x) / rayDir.x;
-      let mut tMax = (vMax.x - ray.coords[0].x) / rayDir.x;
+      let mut tMin = (vMin.x - ray.coords[0].x) / ray.dir.x;
+      let mut tMax = (vMax.x - ray.coords[0].x) / ray.dir.x;
       if tMin > tMax { std::mem::swap(&mut tMin, &mut tMax) }
 
-      let mut tYMin = (vMin.y - ray.coords[0].y) / rayDir.y;
-      let mut tYMax = (vMax.y - ray.coords[0].y) / rayDir.y;
+      let mut tYMin = (vMin.y - ray.coords[0].y) / ray.dir.y;
+      let mut tYMax = (vMax.y - ray.coords[0].y) / ray.dir.y;
       if tYMin > tYMax { std::mem::swap(&mut tYMin, &mut tYMax) } 
 
       if tMin > tYMax || tYMin > tMax { continue }
       tMin = tMin.max(tYMin);
       tMax = tMax.min(tYMax);
 
-      let mut tZMin = (vMin.z - ray.coords[0].z) / rayDir.z;
-      let mut tZMax = (vMax.z - ray.coords[0].z) / rayDir.z;
+      let mut tZMin = (vMin.z - ray.coords[0].z) / ray.dir.z;
+      let mut tZMax = (vMax.z - ray.coords[0].z) / ray.dir.z;
       if tZMin > tZMax { std::mem::swap(&mut tZMin, &mut tZMax) }
 
       if tMin > tZMax || tZMin > tMax { continue }
@@ -98,14 +98,23 @@ impl Entity {
     intersections
   }
 
-  pub fn processKeyboard(&mut self, key: Key, deltaTime: f32) {
+  pub fn processMouse(&mut self, dir: Vector3<f32>, terrain: &Terrain, deltaTime: f32) {
+    let velocity = self.speed * deltaTime;
+    self.worldPos.x = (self.worldPos.x + (dir.x * velocity)).max(DEADZONE).min(BOUND_MAX);
+    self.worldPos.z = (self.worldPos.z + (dir.z * velocity)).max(DEADZONE).min(BOUND_MAX);
+    self.worldPos.y = terrain.getHeight(self.worldPos.x, self.worldPos.z);
+  }
+
+  pub fn processKeyboard(&mut self, key: Key, terrain: &Terrain, deltaTime: f32) {
     let velocity = self.speed * deltaTime;
     match key {
-      Key::Up => { self.worldPos.x = self.worldPos.x + velocity; },
-      Key::Down => { self.worldPos.x = self.worldPos.x - velocity; },
-      Key::Left => { self.worldPos.z = self.worldPos.z + velocity },
-      Key::Right => { self.worldPos.z = self.worldPos.z - velocity },
+      Key::Up => { self.worldPos.z = (self.worldPos.z + velocity).max(DEADZONE).min(BOUND_MAX) },
+      Key::Down => { self.worldPos.z = (self.worldPos.z - velocity).max(DEADZONE).min(BOUND_MAX) },
+      Key::Left => { self.worldPos.x = (self.worldPos.x + velocity).max(DEADZONE).min(BOUND_MAX) },
+      Key::Right => { self.worldPos.x = (self.worldPos.x - velocity).max(DEADZONE).min(BOUND_MAX) },
       _ => {} 
     }
+
+    self.worldPos.y = terrain.getHeight(self.worldPos.x, self.worldPos.z);
   }
 }

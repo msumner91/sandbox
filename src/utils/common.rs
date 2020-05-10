@@ -1,6 +1,6 @@
 #![allow(non_snake_case)]
 extern crate glfw;
-use self::glfw::{Context, Glfw, Window, WindowEvent, Action, Key, MouseButtonLeft};
+use self::glfw::{Context, Glfw, Window, WindowEvent, Action, Key, MouseButtonLeft, MouseButtonRight};
 use gl;
 
 use std::sync::mpsc::Receiver;
@@ -13,6 +13,7 @@ use image::*;
 use super::camera::{Camera, CameraMovement::*};
 use crate::entity::Entity;
 use super::mesh::Line;
+use super::terrain::Terrain;
 use super::maths::translateCoords;
 
 pub fn initGlfw() -> Glfw {
@@ -51,7 +52,12 @@ pub fn updateTimings(glfw: Glfw, deltaTime: &mut f32, lastFrame: &mut f32) -> ()
   *lastFrame = currentFrame;
 }
 
-pub fn process_events(window: &mut glfw::Window, events: &Receiver<(f64, glfw::WindowEvent)>, firstMouse: &mut bool, lastX: &mut f32, lastY: &mut f32, camera: &mut Camera) {
+pub fn process_events(window: &mut glfw::Window, 
+                      events: &Receiver<(f64, glfw::WindowEvent)>, 
+                      firstMouse: &mut bool, 
+                      lastX: &mut f32, 
+                      lastY: &mut f32, 
+                      camera: &mut Camera) {
   for (_, event) in glfw::flush_messages(events) {
     match event {
       glfw::WindowEvent::FramebufferSize(width, height) => {
@@ -86,7 +92,7 @@ pub fn process_events(window: &mut glfw::Window, events: &Receiver<(f64, glfw::W
   }
 }
 
-pub fn processInput(window: &mut glfw::Window, deltaTime: f32, camera: &mut Camera, nanoEntity: &mut Entity, lines: &mut Vec<Line>, lastX: f32, lastY: f32, projectionMatrix: &Matrix4<f32>) {
+pub fn processInput(window: &mut glfw::Window, deltaTime: f32, camera: &mut Camera, nanoEntity: &mut Entity, lastX: f32, lastY: f32, terrain: &Terrain, projectionMatrix: &Matrix4<f32>) {
   if window.get_key(Key::Escape) == Action::Press {
     window.set_should_close(true)
   }
@@ -102,24 +108,33 @@ pub fn processInput(window: &mut glfw::Window, deltaTime: f32, camera: &mut Came
   if window.get_key(Key::D) == Action::Press {
     camera.processKeyboard(RIGHT, deltaTime);
   }
-
+  if window.get_key(Key::Space) == Action::Press {
+    camera.processKeyboard(UP, deltaTime);
+  }
+  if window.get_key(Key::LeftControl) == Action::Press {
+    camera.processKeyboard(DOWN, deltaTime);
+  }
+  
   let (up, down, left, right) = (window.get_key(Key::Up), window.get_key(Key::Down), window.get_key(Key::Left), window.get_key(Key::Right));
   if up == Action::Press {
-    nanoEntity.processKeyboard(Key::Up, deltaTime);
+    nanoEntity.processKeyboard(Key::Up, terrain, deltaTime);
   }
   if down == Action::Press {
-    nanoEntity.processKeyboard(Key::Down, deltaTime);
+    nanoEntity.processKeyboard(Key::Down, terrain, deltaTime);
   }
   if left == Action::Press {
-    nanoEntity.processKeyboard(Key::Left, deltaTime);
+    nanoEntity.processKeyboard(Key::Left, terrain, deltaTime);
   }
   if right == Action::Press {
-    nanoEntity.processKeyboard(Key::Right, deltaTime);
+    nanoEntity.processKeyboard(Key::Right, terrain, deltaTime);
   }
 
-  if window.get_key(Key::Q) == Action::Press {
+  if window.get_mouse_button(MouseButtonRight) == Action::Press {
     let (start, end) = translateCoords(lastX, lastY, projectionMatrix, camera);
-    lines.push(Line::new(start, end));
+    let l = Line::new(start, end);
+    if nanoEntity.intersect(&l).len() > 0 { 
+      nanoEntity.processMouse(l.dir, terrain, deltaTime)
+    }
   }
 }
 
