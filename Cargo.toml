@@ -8,7 +8,6 @@ edition = "2018"
 cgmath = "0.16.1"
 gl = "0.10.0"
 image = "0.19.0"
-# only needed from chapter 3 on
 tobj = "0.1.6"
 num = "0.2.0"
 rand = "0.5.5"
